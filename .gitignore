@@ -1,0 +1,25 @@
+# Scala Build
+.scala-build/
+.bsp/
+.metals/
+target/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Output files (generated)
+output/
+
+# Source data files (too large for Git)
+sources/
+
+# Logs
+*.log
