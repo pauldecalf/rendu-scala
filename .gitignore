@@ -19,7 +19,6 @@ Thumbs.db
 output/
 
 # Source data files (too large for Git)
-sources/
 
 # Logs
 *.log
