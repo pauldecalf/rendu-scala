@@ -101,6 +101,196 @@ scala-cli run lire_resultats.scala
 
 ## 🔍 Analyse des résultats
 
+### Questions et Réponses
+
+#### 📊 Combien de colonnes par fichier ? Quels types de données semblent incorrects ou suspects ?
+
+**Cards Data** : 13 colonnes
+- ✅ Types corrects : `id`, `client_id`, `card_number`, `cvv`, `year_pin_last_changed`
+- ⚠️ Types suspects :
+  - `credit_limit` (String) → devrait être numérique (format "$24295")
+  - `has_chip` (String "YES"/"NO") → devrait être Boolean
+  - `card_on_dark_web` (String "Yes"/"No") → devrait être Boolean
+  - `expires` (String "MM/YYYY") → devrait être Date
+
+**Transactions Data** : 12 colonnes
+- ✅ Types corrects : `id`, `client_id`, `card_id`, `merchant_id`, `mcc`
+- ⚠️ Types suspects :
+  - `amount` (String) → devrait être numérique (format "$14.57")
+  - `use_chip` (String "Swipe Transaction") → devrait être enum ou code
+  - `date` (Timestamp) → ✅ correct
+  - **670 688 montants négatifs** (5%) → probablement des remboursements mal étiquetés
+
+**Users Data** : 14 colonnes
+- ✅ Types corrects : `id`, `current_age`, `credit_score`, `latitude`, `longitude`
+- ⚠️ Types suspects :
+  - `per_capita_income` (String) → devrait être numérique (format "$29278")
+  - `yearly_income` (String) → devrait être numérique (format "$59696")
+  - `total_debt` (String) → devrait être numérique (format "$127613")
+
+**MCC Codes** : 2 colonnes
+- ✅ Format correct (mcc: String, merchant_category: String)
+
+**Conclusion** : Les montants financiers sont systématiquement stockés en String avec le symbole "$", nécessitant un nettoyage.
+
+#### 📈 Qui génère le plus de lignes ?
+
+**Fichier Transactions** : 13 305 915 lignes → **99,99% du volume total**
+- Cards : 6 146 lignes (0,046%)
+- Users : 2 000 lignes (0,015%)
+- MCC Codes : ~1 000 lignes (négligeable)
+
+**Par carte** : La carte **3239** génère **30 520 transactions** (record)
+**Par client** : Le client **1888** génère **40 105 transactions** sur 3 cartes
+**Par commerçant** : 74 831 commerçants uniques, moyenne de **178 transactions/commerçant**
+
+#### 💰 Question métier : Les montants élevés sont-ils rares ou fréquents ?
+
+**Distribution des montants** :
+- **<10€** : 3 574 928 transactions (26,9%) → fréquents
+- **10-50€** : 5 283 992 transactions (39,7%) → **très fréquents**
+- **50-200€** : 4 127 894 transactions (31,0%) → fréquents
+- **>200€** : 319 101 transactions (2,4%) → **RARES**
+
+**Statistiques** :
+- Montant moyen : **42,98 €**
+- Médiane : **28,99 €** (50% des transactions < 29 €)
+- Maximum : **6 820,20 €**
+
+**Conclusion** : Les montants élevés (>200€) sont **rares** (2,4%). 97,6% des transactions sont < 200€.
+
+#### ⏰ Existe-t-il des heures anormalement actives ?
+
+**Heures normales actives** (comportement attendu) :
+- **11h-12h** : 943 671 transactions (pic déjeuner)
+- **12h-13h** : 953 498 transactions (pic maximal)
+- **6h-17h** : ~80% du volume total
+
+**Heures anormalement CALMES** (suspect si activité importante) :
+- **23h-0h** : 158 877 transactions (1,2%)
+- **3h-4h** : 103 784 transactions (0,8%) → **heure la plus calme**
+- **0h-5h** : seulement 587 918 transactions (4,4%)
+
+**Analyse de fraude** :
+- Une transaction à **3h du matin** est statistiquement **16x moins probable** qu'à 12h
+- Les cartes avec beaucoup de transactions nocturnes sont **potentiellement suspectes**
+- La carte **1016** a des transactions à toutes heures → risque ÉLEVÉ détecté
+
+#### 🏪 Certaines catégories sont-elles plus risquées ?
+
+**Top 3 des catégories avec le plus d'erreurs** :
+1. **Theatrical Producers** : 3,26% d'erreurs (1 288/39 544)
+2. **Cable, Satellite TV** : 3,11% d'erreurs (1 602/51 526)
+3. **Money Transfer** : 3,09% d'erreurs (18 206/589 140) → ⚠️ **très suspect**
+
+**Catégories à montants élevés** (cible de fraude) :
+- **Cruise Lines** : 1 551 € en moyenne
+- **Hospitals** : 726 € en moyenne
+- **Legal Services** : 536 € en moyenne
+
+**Catégories sûres** (taux d'erreur < 1%) :
+- Grocery Stores : 1,59M transactions, faible taux d'erreur
+- Service Stations : 1,42M transactions, très standard
+
+**Conclusion** : Oui, **Money Transfer** et **Theatrical Producers** sont significativement plus risquées que la moyenne (1,59%).
+
+#### 🚨 Un client avec beaucoup d'erreurs est-il suspect ?
+
+**Analyse statistique** :
+
+**Client 954** : 14,64% d'erreurs (2 935/20 047 transactions) → **HAUTEMENT SUSPECT**
+- 9x plus que la moyenne (1,59%)
+- 4 cartes différentes
+- Comportement anormal : peut-être des cartes volées
+
+**Top 5 clients à taux d'erreur élevé** :
+1. Client **954** : 14,64%
+2. Client **1189** : 6,40%
+3. Client **363** : 5,52%
+4. Client **1424** : 5,33%
+5. Client **1888** : 5,26%
+
+**Corrélation erreurs / fraude** :
+- Taux normal : 1,59%
+- Taux suspect : > 3% (2x la moyenne)
+- Taux critique : > 10% (6x la moyenne)
+
+**Interprétation** :
+- ✅ **Oui, un taux d'erreur > 5% est suspect** (peut indiquer vol de carte, PIN incorrect)
+- ❌ **Mais attention aux faux positifs** : peut être un client âgé qui oublie son PIN
+- 🔍 **À croiser avec** : dispersion géographique, montants élevés, heures anormales
+
+**Conclusion** : Un client avec **> 5% d'erreurs** nécessite une investigation, surtout si combiné avec d'autres signaux.
+
+#### 🔍 Quels patterns principaux sont observés ?
+
+**1. Pattern de dispersion géographique**
+- Carte normale : 10-50 villes distinctes
+- Carte suspecte : > 100 villes distinctes
+- Carte **3239** : **359 villes** → risque ÉLEVÉ
+
+**2. Pattern de volume excessif**
+- Carte normale : 1-5 transactions/jour
+- Carte suspecte : > 10 transactions/jour
+- Carte **1016** : **7,2 transactions/jour** sur 10 ans
+
+**3. Pattern de montants élevés**
+- 97,6% des transactions < 200€
+- Jours avec montant total > 1 500€ → suspect
+- Pic détecté : **3 550,79 €** en un jour (carte 1117)
+
+**4. Pattern d'erreurs en cascade**
+- Carte normale : 1-2% erreurs
+- Carte suspecte : > 5% erreurs
+- Carte **2220** : **15% d'erreurs** → carte probablement volée
+
+**5. Pattern temporel nocturne**
+- Transactions entre 0h-5h : 4,4% du volume
+- Cartes actives la nuit avec montants élevés → suspect
+
+#### 🤖 Quels indicateurs semblent utiles pour un futur modèle ?
+
+**Features à haute importance** (★★★) :
+1. **Taux d'erreur** (ratio transactions refusées) → forte corrélation avec fraude
+2. **Dispersion géographique** (nombre de villes distinctes) → meilleur prédicteur observé
+3. **Volume journalier** (nb transactions/jour) → détecte les pics anormaux
+4. **Montant total journalier** → détecte les dépenses excessives
+5. **Heure de transaction** → nuit = risque accru
+
+**Features à importance moyenne** (★★) :
+6. **Catégorie MCC** → certaines catégories plus risquées (Money Transfer)
+7. **Écart-type des montants** → variabilité anormale
+8. **Distance entre transactions** (lat/long) → voyages impossibles
+9. **Type de transaction** (Chip vs Swipe vs Online) → Online plus risqué
+10. **Nombre de transactions par heure** → pics suspects
+
+**Features contextuelles** (★) :
+11. **Credit score du client** → corrélation avec solvabilité
+12. **Âge de la carte** (acct_open_date) → nouvelles cartes plus risquées
+13. **Dark web flag** → si "Yes", risque maximal
+
+**Score de risque composite** (utilisé dans l'analyse) :
+- Combinaison pondérée : `score_volume + score_geo + score_montant + score_erreur`
+- Seuils : CRITIQUE (≥70), ÉLEVÉ (≥50), MODÉRÉ (≥30)
+
+#### ⚠️ Quelles limites présentent ces données ?
+
+**1. Qualité des données**
+- 11,7% de `merchant_state` NULL → géolocalisation incomplète
+- 12,4% de `zip` NULL → impossible de calculer distances précises
+- 5% de montants négatifs → remboursements non distingués des achats
+- Types de données incorrects (String au lieu de numérique)
+
+**2. Absence de labels**
+- ⚠️ **Pas de labels de fraude confirmée** (ground truth manquant)
+- Impossible de valider les détections
+- Le fichier `train_fraud_labels.json` n'est pas exploité
+
+**3. Biais temporels**
+- Données de 2010-2020 (pré-COVID) → comportements obsolètes
+- Explosion du e-commerce non capturée
+- Inflation non prise en compte
+
 ### Patterns principaux observés
 
 #### Volumétrie générale
