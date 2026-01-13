@@ -133,30 +133,6 @@ scala-cli run lire_resultats.scala
 - **"Technical Glitch"** : 12,4% des erreurs
 - Certaines cartes atteignent **15% de taux d'erreur** (carte 2220, 2644, 5586)
 
-### Indicateurs utiles pour un futur modèle de Machine Learning
-
-#### Features comportementales (★★★ Haute importance)
-1. **Volume transactionnel** : transactions/jour, écart-type du volume
-2. **Dispersion géographique** : nombre de villes distinctes, distance entre transactions
-3. **Patterns temporels** : heures inhabituelles, concentration de transactions
-4. **Montants** : moyenne, écart-type, montant maximum, pics anormaux
-
-#### Features d'erreur (★★ Importance moyenne)
-5. **Taux d'erreur** : ratio de transactions refusées
-6. **Types d'erreurs** : fréquence par type (PIN, CVV, solde)
-7. **Séquences d'erreurs** : erreurs consécutives (signe de vol de carte)
-
-#### Features contextuelles (★ Importance faible)
-8. **Catégories MCC** : diversité des types de commerçants
-9. **Utilisation de la puce** : ratio Chip vs Swipe vs Online
-10. **Profil client** : revenus, âge, credit_score, dette
-
-#### Features composites recommandées
-- **Velocity checks** : transactions/heure sur une fenêtre glissante
-- **Distance géographique** : km entre 2 transactions consécutives
-- **Ratio Online/Physique** : changement brutal de comportement
-- **Score de risque composite** : combinaison pondérée multi-critères
-
 ### Limites des données
 
 #### Qualité des données
@@ -174,23 +150,6 @@ scala-cli run lire_resultats.scala
 - Seuls des **indicateurs de suspicion** sont calculés (heuristiques)
 - Impossible de valider les détections avec un ground truth
 - Le fichier `train_fraud_labels.json` n'est pas utilisé dans l'analyse actuelle
-
-#### Biais temporels
-- Données de **2010-2020** → comportements d'achat pré-COVID
-- Évolution des habitudes de consommation non capturée (explosion du e-commerce)
-- Inflation non prise en compte dans les montants
-
-#### Limites techniques
-- **Pas de séquence temporelle fine** : difficile de détecter des transactions rapprochées
-- **Pas d'informations sur le commerçant** : impossible de détecter des commerçants frauduleux
-- **Pas de données sur les disputes/chargebacks** : pas de feedback sur les vraies fraudes
-
-### Recommandations pour améliorer le modèle
-1. ✅ **Nettoyer les données** : imputer les NULL, séparer remboursements/achats
-2. ✅ **Ajouter des features temporelles** : délai entre transactions, fenêtres glissantes
-3. ✅ **Utiliser les labels de fraude** disponibles dans `train_fraud_labels.json`
-4. ✅ **Géolocalisation avancée** : calculer distances réelles avec lat/long
-5. ✅ **Analyse de réseau** : détecter les commerçants suspects
 
 ## 📝 Technologies utilisées
 
